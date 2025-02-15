@@ -8,13 +8,67 @@ from src.utils.config_loader import load_config
 from src.utils.data_loader import load_data
 
 train_config = load_config("hyperparameters.yaml")
+
+
+def apply_majority_vote(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Resolves label conflicts using a majority vote approach. If a tie occurs, the phrase is discarded.
+
+    Args:
+        df (pd.DataFrame): Raw dataframe containing 'phrase_text' and 'sol' columns.
+
+    Returns:
+        pd.DataFrame: Consolidated dataframe with 'text' and 'label' columns.
+    """
+    logger.info("[DATA PROCESSING] Applying majority vote to resolve label conflicts.")
+
+    # Identify conflicting labels
+    conflict_counts = df.groupby("phrase_text")["sol"].nunique()
+    conflicting_phrases = df[df["phrase_text"].isin(conflict_counts[conflict_counts > 1].index)]
+    clean_data = df[~df["phrase_text"].isin(conflicting_phrases["phrase_text"])]
+
+    total_conflicting_rows = len(conflicting_phrases)  # Total rows before processing
+
+    resolved_conflicts = []
+    discarded_conflicts = 0
+
+    for phrase, group in conflicting_phrases.groupby("phrase_text"):
+        majority_label = group["sol"].mode()
+
+        if len(majority_label) == 1:
+            resolved_conflicts.append({"text": phrase, "label": majority_label.iloc[0]})
+        else:
+            discarded_conflicts += len(group)  # Count rows discarded
+
+    # Convert resolved conflicts to DataFrame
+    resolved_conflicts_df = pd.DataFrame(resolved_conflicts)
+
+    # Convert clean data to desired format
+    clean_data_df = clean_data.rename(columns={"phrase_text": "text", "sol": "label"})[["text", "label"]]
+
+    # Append resolved conflicts to the clean data
+    final_df = pd.concat([clean_data_df, resolved_conflicts_df], ignore_index=True)
+
+    # Validate correct accounting of conflicts
+    resolved_rows = len(resolved_conflicts_df)
+    assert (resolved_rows + discarded_conflicts) == total_conflicting_rows, \
+        "Mismatch in total conflicting rows, resolved, and discarded counts!"
+
+    # Log statistics
+    logger.info(f"[DATA PROCESSING] Total conflicting rows: {total_conflicting_rows}")
+    logger.info(f"[DATA PROCESSING] Resolved {resolved_rows} conflicts via majority vote.")
+    logger.info(f"[DATA PROCESSING] Discarded {discarded_conflicts} rows due to unresolved ties.")
+
+    return final_df
+
+
 def data_preparation(data_filename: str) -> Tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
     """
     Prepares the dataset for training by loading a CSV file, validating required columns,
-    and splitting the data into training and testing sets.
+    applying majority vote resolution, and splitting the data into training and testing sets.
 
     Args:
-        data_filename (str): Path to the CSV file containing the dataset.
+        data_filename (str): Path to the dataset file.
 
     Returns:
         Tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
@@ -24,28 +78,23 @@ def data_preparation(data_filename: str) -> Tuple[pd.Series, pd.Series, pd.Serie
         - y_test: Testing labels.
 
     Raises:
-        ValueError: If the CSV file does not contain the required 'text' and 'label' columns.
+        ValueError: If required columns are missing.
     """
     logger.info("[TRAIN] Starting the training data preparation process.")
 
-    # Load dataset from CSV file
-    df = load_data('raw','stages-votes.json')
-    # Count occurrences of different labels for the same phrase_text
-    conflict_mask = df.groupby("phrase_text")["sol"].nunique() > 1
-    # Separate conflicting and clean data
-    conflict_phrases = df[
-        df["phrase_text"].isin(df.groupby("phrase_text").filter(lambda x: x["sol"].nunique() > 1)["phrase_text"])]
-    clean_data = df[~df.index.isin(conflict_phrases.index)]
+    # Load dataset
+    df = load_data("raw", data_filename)
+    get_stats(df)
 
-    # Log and print discarded data count
-    discarded_count = len(conflict_phrases)
-    logger.info(f"Discarded {discarded_count} rows due to label conflicts.")
-    print(f"Discarded {discarded_count} rows due to label conflicts.")
+    # Apply majority vote and consolidate the dataset
+    consolidated_df = apply_majority_vote(df)
 
-    x, y = df["phrase_text"], df["sol"]
-    logger.info(f"[TRAIN] Dataset loaded successfully with {len(df)} records.")
+    logger.info(f"[TRAIN] Dataset consolidated successfully with {len(consolidated_df)} records.")
 
-    # Split the dataset into training and testing sets
+    # Extract features and labels
+    x, y = consolidated_df["text"], consolidated_df["label"]
+
+    # Split into train and test sets
     x_train, x_test, y_train, y_test = train_test_split(
         x, y,
         test_size=train_config["training"]["test_size"],
@@ -57,5 +106,36 @@ def data_preparation(data_filename: str) -> Tuple[pd.Series, pd.Series, pd.Serie
     return x_train, x_test, y_train, y_test
 
 
-if __name__=="__main__":
-    x_train, x_test, y_train, y_test=data_preparation("stages-votes.json")
+def get_stats(dataframe: pd.DataFrame) -> None:
+    """
+    Logs key statistics about the dataset.
+
+    Args:
+        dataframe (pd.DataFrame): Corpus dataset.
+    """
+    total_rows = len(dataframe)
+    total_unique_users = dataframe["user"].nunique()
+    total_unique_phrases = dataframe["phrase_text"].nunique()
+
+    # Identify conflicting data
+    conflict_mask = dataframe.groupby("phrase_text")["sol"].nunique() > 1
+    conflict_phrases = dataframe[dataframe["phrase_text"].isin(conflict_mask[conflict_mask].index)]
+
+    # Compute statistics
+    discarded_count = len(conflict_phrases)
+    conflict_percentage = (discarded_count / total_rows) * 100 if total_rows > 0 else 0
+
+    # Log statistics
+    logger.info(f"[DATA PREPARATION] Total rows processed: {total_rows}")
+    logger.info(f"[DATA PREPARATION] Total unique users: {total_unique_users}")
+    logger.info(f"[DATA PREPARATION] Total unique phrases: {total_unique_phrases}")
+    logger.info(f"[DATA PREPARATION] Conflicting phrases: {discarded_count} ({conflict_percentage:.2f}%)")
+
+    print(f"Total rows: {total_rows}")
+    print(f"Total unique users: {total_unique_users}")
+    print(f"Total unique phrases: {total_unique_phrases}")
+    print(f"Conflicting phrases: {discarded_count} ({conflict_percentage:.2f}%)")
+
+
+if __name__ == "__main__":
+    x_train, x_test, y_train, y_test = data_preparation("stages-votes.json")
