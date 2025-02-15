@@ -1,0 +1,4 @@
+MODEL_PATH: "models/text_classifier.joblib"
+API_V1_STR: "/api/v1"
+PROJECT_NAME: "Text Classification API"
+PORT : 8000
