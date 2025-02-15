@@ -37,7 +37,6 @@ def load_data(data_folder: str = "raw", data_filename: str = "stages-votes.json"
         with open(data_path, "r", encoding="utf-8") as file:
             data = json.load(file)
         df = pd.DataFrame(data)
-        print(df.head())
         logger.info(f'[DATA LOAD] loaded a dataframe of shape {df.shape}')
         return df
     except Exception as e:

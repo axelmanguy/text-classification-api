@@ -2,3 +2,19 @@ training:
   test_size: 0.2
   random_state: 42
   stratify: true
+
+pipeline:
+  tfidf:
+    ngram_range: [1, 2]
+    min_df: 2
+    top_k: 20000
+    token_mode: "word"
+    dtype: "int32"
+    strip_accents: "unicode"
+    decode_error: "replace"
+  kbest:
+    top_k : 20000
+
+export:
+  model_filename: "text_classifier.joblib"
+  output_folder: "output"
