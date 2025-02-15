@@ -18,9 +18,13 @@ def apply_majority_vote(df: pd.DataFrame) -> pd.DataFrame:
         df (pd.DataFrame): Raw dataframe containing 'phrase_text' and 'sol' columns.
 
     Returns:
-        pd.DataFrame: Consolidated dataframe with 'text' and 'label' columns.
+        pd.DataFrame: Consolidated dataframe with 'text' and 'label' columns (binary: ok=1, ko=0).
     """
-    logger.info("[DATA PROCESSING] Applying majority vote to resolve label conflicts.")
+    logger.info("[DATA PROCESSING] Starting majority vote resolution.")
+
+    # Compute initial statistics
+    total_phrases = df["phrase_text"].nunique()
+    total_users = df["user"].nunique()
 
     # Identify conflicting labels
     conflict_counts = df.groupby("phrase_text")["sol"].nunique()
@@ -28,38 +32,44 @@ def apply_majority_vote(df: pd.DataFrame) -> pd.DataFrame:
     clean_data = df[~df["phrase_text"].isin(conflicting_phrases["phrase_text"])]
 
     total_conflicting_rows = len(conflicting_phrases)  # Total rows before processing
+    total_conflicting_phrases = conflicting_phrases["phrase_text"].nunique()  # Unique phrases with conflicts
+
+    logger.info(f"[DATA PROCESSING] Unique phrases: {total_phrases}")
+    logger.info(f"[DATA PROCESSING] Unique annotators: {total_users}")
+    logger.info(f"[DATA PROCESSING] Total conflicting phrases: {total_conflicting_phrases}")
+    logger.info(f"[DATA PROCESSING] Total conflicting rows: {total_conflicting_rows}")
 
     resolved_conflicts = []
-    discarded_conflicts = 0
+    discarded_phrases = 0
 
     for phrase, group in conflicting_phrases.groupby("phrase_text"):
         majority_label = group["sol"].mode()
 
         if len(majority_label) == 1:
-            resolved_conflicts.append({"text": phrase, "label": majority_label.iloc[0]})
+            resolved_conflicts.append({"text": phrase, "label": 1 if majority_label.iloc[0] == "ok" else 0})
         else:
-            discarded_conflicts += len(group)  # Count rows discarded
+            discarded_phrases += 1  # Count phrases discarded
 
     # Convert resolved conflicts to DataFrame
     resolved_conflicts_df = pd.DataFrame(resolved_conflicts)
+    resolved_phrases = resolved_conflicts_df["text"].nunique()
+    # Log statistics
+    logger.info(f"[DATA PROCESSING] Resolved {resolved_phrases} phrases via majority vote.")
+    logger.info(f"[DATA PROCESSING] Discarded {discarded_phrases} rows due to unresolved ties.")
 
-    # Convert clean data to desired format
+    # Convert clean data to the required format
     clean_data_df = clean_data.rename(columns={"phrase_text": "text", "sol": "label"})[["text", "label"]]
+    clean_data_df["label"] = clean_data_df["label"].apply(lambda x: 1 if x == "ok" else 0)  # Convert to binary
 
     # Append resolved conflicts to the clean data
     final_df = pd.concat([clean_data_df, resolved_conflicts_df], ignore_index=True)
+    logger.info(f"[DATA PROCESSING] Final dataset size: {len(final_df)} rows.")
 
     # Validate correct accounting of conflicts
-    resolved_rows = len(resolved_conflicts_df)
-    assert (resolved_rows + discarded_conflicts) == total_conflicting_rows, \
+    assert (resolved_phrases + discarded_phrases) == total_conflicting_phrases, \
         "Mismatch in total conflicting rows, resolved, and discarded counts!"
-
-    # Log statistics
-    logger.info(f"[DATA PROCESSING] Total conflicting rows: {total_conflicting_rows}")
-    logger.info(f"[DATA PROCESSING] Resolved {resolved_rows} conflicts via majority vote.")
-    logger.info(f"[DATA PROCESSING] Discarded {discarded_conflicts} rows due to unresolved ties.")
-
     return final_df
+
 
 
 def data_preparation(data_filename: str) -> Tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
@@ -131,10 +141,6 @@ def get_stats(dataframe: pd.DataFrame) -> None:
     logger.info(f"[DATA PREPARATION] Total unique phrases: {total_unique_phrases}")
     logger.info(f"[DATA PREPARATION] Conflicting phrases: {discarded_count} ({conflict_percentage:.2f}%)")
 
-    print(f"Total rows: {total_rows}")
-    print(f"Total unique users: {total_unique_users}")
-    print(f"Total unique phrases: {total_unique_phrases}")
-    print(f"Conflicting phrases: {discarded_count} ({conflict_percentage:.2f}%)")
 
 
 if __name__ == "__main__":
