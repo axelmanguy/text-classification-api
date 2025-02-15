@@ -97,7 +97,7 @@ def save_model(model, tokenizer, save_dir="/home/mng/PycharmProjects/text-classi
 # Load dataset# Training pipeline
 def train():
     logger.info("[CAMEMBERT TRAIN] Loading dataset...")
-    train_texts, val_texts, train_labels, val_labels = data_preparation('movie.csv')
+    train_texts, val_texts, train_labels, val_labels = data_preparation('stages-votes.json')
 
     logger.info("[CAMEMBERT TRAIN] Initializing tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained("almanach/camembertav2-base")
