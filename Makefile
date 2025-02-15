@@ -6,11 +6,11 @@ train:
 
 # Run the FastAPI server
 run:
-	uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --reload
+	uvicorn src.api.app:app --host 0.0.0.0 --port 7000 --reload
 
 # Run all tests
 e2e-test:
-	pytest test/e2e_test/test_api.py
+	pytest tests/e2e_test/test_api.py
 
 # Build the Docker image
 docker-build:

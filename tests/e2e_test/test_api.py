@@ -6,7 +6,7 @@ from src.utils.logger import test_logger as logger
 
 API_URL = "http://127.0.0.1:7000"
 # Load test dataset (Ensure "test_data.csv" exists)
-TEST_DF = pd.read_json("../../data/raw/stages-votes.json").sample(100)
+TEST_DF = pd.read_json("./data/raw/stages-votes.json").sample(100)
 TEST_DF["label"] = TEST_DF["sol"].apply(lambda x: 1 if x == "ok" else 0)  # Convert to binary
 
 @pytest.fixture(scope="module")
