@@ -36,4 +36,4 @@ def setup_logger(name, log_file):
 # Define separate loggers for training and serving
 train_logger = setup_logger("train_logger", train_log_file)
 inference_logger = setup_logger("inference_logger", inference_log_file)
-test_logger = setup_logger("inference_logger", inference_log_file)
+test_logger = setup_logger("test_logger", test_log_file)
