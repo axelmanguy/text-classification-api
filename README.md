@@ -79,15 +79,15 @@ Un script de fine-tuning adapté d'un projet précédent est néanmoins fourni p
 
 #### **Proposition d’augmentation de données**  
 
-Une approche expérimentale consiste à générer des **données synthétiques** via des **LLMs**.  
+Une approche expérimentale consisterait à générer des **données synthétiques** via des **LLMs**.  
 
 Trois stratégies de génération sont envisagées :  
 
-1. **Génération d’exemples positifs (OK)** : Générer du texte similaire à des exemples conformes via un LLM, en filtrant ceux trop proches du corpus initial (via un score de similarité type `E5` ou `BGE-M3`).  
+1. **Génération d’exemples positifs (OK)** : Générer du texte similaire à des exemples conformes via un LLM, en filtrant ceux trop proches du corpus initial (via une mesure de similarité entre embedings, avec`E5` ou `BGE-M3` comme modèle par exemple).  
 2. **Génération d’exemples négatifs (NOK)** : Même approche, mais pour les exemples non conformes.  
-3. **Validation par LLM ("LLM as a judge")** : Utilisation d’un prompt précis pour évaluer objectivement la qualité des données générées.  
+3. **Validation par LLM ("LLM as a judge")** : Utilisation d’un prompt précis pour évaluer objectivement la qualité des données générées. Des critères doivent etre conçus (originalité, présence de mots clefs ect)
 
-Bien que prometteuse, cette approche comporte des **biais** liés à la diversité du corpus initial et aux modèles générateurs eux-mêmes.  
+Bien que prometteuse, cette approche comporte des **biais** liés à la diversité du corpus initial et aux limites inherentes aux LLMs.  
 
 ---
 
